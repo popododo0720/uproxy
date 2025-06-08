@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="EMPTY_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/udss-proxy-acl/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/udss-proxy-buffer/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/udss-proxy-config/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/udss-proxy-db/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/udss-proxy-error/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/udss-proxy-logging/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/udss-proxy-metrics/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/udss-proxy-proxy/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/udss-proxy-server/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/udss-proxy-session/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/udss-proxy-tls/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>

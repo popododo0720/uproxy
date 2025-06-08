@@ -1,0 +1,10 @@
+[package]
+name = "udss-proxy-config"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+udss-proxy-error = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+serde_yml = { workspace = true }

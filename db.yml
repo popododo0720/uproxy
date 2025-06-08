@@ -1,0 +1,21 @@
+# PostgreSQL 데이터베이스 접속 정보
+connection:
+  host: localhost
+  port: 5432
+  database: alicedb
+  user: dbadmin
+  password: dbadminpass
+  sslmode: disable # Disable, Prefer, Require,
+
+# 로그 파티션 설정
+partitioning:
+  creation_interval: 1 # 파티션 생성 주기 (일)
+  retention_period: 365 # 파티션 보관 기간 (일)
+  future_partitions: 1 # 미리 생성할 파티션 수
+
+# 연결 풀 설정
+pool:
+  max_connections: 20 # 최대 연결 수
+  connection_timeout_seconds: 30 # 연결 시도 타임아웃 30초
+  recycle_seconds: 21600 # 6시간마다 연결 갱신
+  

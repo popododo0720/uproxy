@@ -1,0 +1,12 @@
+[package]
+name = "udss-proxy-error"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true }
+serde_yml = { workspace = true }
+tokio = { workspace = true }
+tokio-postgres = { workspace = true }
+deadpool-postgres = { workspace = true }
+rcgen = { workspace = true }
