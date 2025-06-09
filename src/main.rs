@@ -1,8 +1,5 @@
 use std::io::Write;
 
-
-
-
 use once_cell::sync::Lazy;
 use log::{info, warn, LevelFilter};
 use env_logger::Builder;
@@ -11,7 +8,7 @@ use chrono::Local;
 use udss_proxy_config::Settings;
 use udss_proxy_error::{Result};
 use udss_proxy_tls::certs::{init_root_ca, ensure_ssl_directories, load_trusted_certificates};
-use udss_proxy_db::initialize_database;
+use udss_proxy_db::{initialize_dbpool, initialize_db};
 
 /// 파일 디스크립터 제한 설정
 static FD_LIMIT: Lazy<u64> = Lazy::new(|| {
@@ -89,8 +86,8 @@ async fn main() -> Result<()>{
     init_root_ca(&settings.proxy).await?;
 
     // db 세팅
-    let db_pool = initialize_database(&settings.database).await?;
-    
+    let db_pool = initialize_dbpool(&settings.database).await?;
+    initialize_db(&settings.database, &db_pool).await?;
 
     Ok(())
 }

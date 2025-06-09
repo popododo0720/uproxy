@@ -112,7 +112,8 @@ pub struct PoolStatus {
     pub waiting: usize,
 }
 
-/// 데이터베이스 초기화 함수
-pub async fn initialize_database(config: &DbConfig) -> Result<DatabasePool> {
+/// 데이터베이스 풀 초기화 함수
+pub async fn initialize_dbpool(config: &DbConfig) -> Result<DatabasePool> {
     DatabasePool::new(config).await
 }
+
