@@ -1,6 +1,7 @@
 pub mod pool;
 pub mod db;
-pub mod partition;
+pub mod sql;
+pub mod partitions;
 
 pub use pool::{
     DatabasePool, 
@@ -12,6 +13,11 @@ pub use db::{
     initialize_db,
 };
 
-pub use partition::{
-    PartitionManager,
+pub use sql::{
+    request_logs,
+};
+
+pub use partitions::{
+    TableType,
+    create_partitions,
 };

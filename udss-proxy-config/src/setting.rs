@@ -8,6 +8,7 @@ use crate::config::Config;
 use crate::dbconfig::DbConfig;
 
 /// 통합 세팅 인스턴스
+#[derive(Clone)]
 pub struct Settings {
     pub proxy: Config,
     pub database: DbConfig,

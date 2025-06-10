@@ -24,17 +24,22 @@ udss-proxy-config = { path = "udss-proxy-config" }
 udss-proxy-db = { path = "udss-proxy-db" }
 udss-proxy-logging = { path = "udss-proxy-logging" }
 udss-proxy-error = { path = "udss-proxy-error" }
+udss-proxy-server = { path = "udss-proxy-server" }
 udss-proxy-tls = { path = "udss-proxy-tls" }
 
 # 외부
 tokio = { version = "1", features = ["full"] }
 once_cell = "1.21.3"
 nix = { version = "0.30.1", features = ["socket", "resource", "zerocopy", "net"] }
-chrono = "0.4.41"
+chrono = { version = "0.4.35", features = ["serde"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_yml = "0.0.12"
 async-trait = "0.1.88"
 rcgen = "0.13.2"
+num_cpus = "1.17.0"
+hyper = { version = "1", features = ["full", "client"] }
+hyper-util = { version = "0.1.14", features = ["full"] }
+http-body-util = "0.1"
 
 # db
 tokio-postgres = { version = "0.7.13", features = ["with-chrono-0_4"] }
@@ -50,6 +55,7 @@ udss-proxy-config = { workspace = true }
 udss-proxy-db = { workspace = true }
 udss-proxy-logging = { workspace = true }
 udss-proxy-error = { workspace = true }
+udss-proxy-server = { workspace = true}
 udss-proxy-tls = { workspace = true }
 
 # 외부
@@ -57,9 +63,10 @@ tokio = { workspace = true }
 once_cell = { workspace = true }
 nix = { workspace = true }
 chrono = { workspace = true }
+num_cpus = { workspace = true }
 
 # db
-tokio-postgres = { version = "0.7.13", features = ["with-chrono-0_4"] }
+tokio-postgres = { workspace = true }
 deadpool-postgres = { workspace = true }
 
 # 로깅

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use udss_proxy_error::{Result};
 
 /// 프록시 서버 설정
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub bind_host: String,
     pub bind_port: u16,

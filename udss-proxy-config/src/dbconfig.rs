@@ -6,6 +6,31 @@ use serde::{Deserialize, Serialize};
 
 use udss_proxy_error::{Result};
 
+/// 데이터베이스 설정
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct DbConfig {
+    /// 데이터베이스 연결 설정
+    pub connection: ConnectionConfig,
+    /// 파티셔닝 설정
+    pub partitioning: PartitionConfig,
+    /// 연결 풀 설정
+    pub pool: PoolConfig,
+}
+
+impl DbConfig {
+    /// 설정파일에서 db 설정 로드
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let path = path.as_ref();
+        let mut file = File::open(path)?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)?;
+
+        let config: DbConfig = serde_yml::from_str(&contents)?;
+
+        Ok(config)
+    }
+}
+
 /// db 연결설정
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConnectionConfig {
@@ -72,27 +97,3 @@ impl Default for PoolConfig {
     }
 }
 
-/// 데이터베이스 설정
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct DbConfig {
-    /// 데이터베이스 연결 설정
-    pub connection: ConnectionConfig,
-    /// 파티셔닝 설정
-    pub partitioning: PartitionConfig,
-    /// 연결 풀 설정
-    pub pool: PoolConfig,
-}
-
-impl DbConfig {
-    /// 설정파일에서 db 설정 로드
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let path = path.as_ref();
-        let mut file = File::open(path)?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-
-        let config: DbConfig = serde_yml::from_str(&contents)?;
-
-        Ok(config)
-    }
-}

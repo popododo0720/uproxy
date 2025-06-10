@@ -9,6 +9,40 @@ use udss_proxy_config::Settings;
 use udss_proxy_error::{Result};
 use udss_proxy_tls::certs::{init_root_ca, ensure_ssl_directories, load_trusted_certificates};
 use udss_proxy_db::{initialize_dbpool, initialize_db};
+use udss_proxy_server::proxy_server::{ProxyServer};
+
+#[tokio::main]
+async fn main() -> Result<()>{
+    // fd 세팅
+    setup_resource_limits();
+    
+    // 로거 세팅
+    setup_logger();
+    
+    info!("udss-proxy 서버 시작");
+
+    // 통합 설정 로드
+    let mut settings = Settings::new()?;
+
+    // SSL 디렉토리 확인 및 생성
+    ensure_ssl_directories(&settings.proxy)?;
+
+    // 신뢰할 인증서 로드
+    load_trusted_certificates(&mut settings.proxy)?;
+
+    // tls 루트 ca 인증서 초기화
+    init_root_ca(&settings.proxy).await?;
+
+    // db 초기화
+    let db_pool = initialize_dbpool(&settings.database).await?;
+    initialize_db(&settings.database, &db_pool).await?;
+
+    // 서버 시작
+    let server = ProxyServer::new(settings.clone());
+    server.run().await?;
+    
+    Ok(())
+}
 
 /// 파일 디스크립터 제한 설정
 static FD_LIMIT: Lazy<u64> = Lazy::new(|| {
@@ -59,35 +93,18 @@ fn setup_logger() {
     {
         Builder::new()
             .filter(None, LevelFilter::Info)
-            .init();
+            .format(|buf,record| {
+                writeln!(
+                    buf,
+                    "[{} {} {}:{}] {}",
+                    Local::now().format("%Y-%m-%d %H:%M:%S"),
+                    record.level(),
+                    record.file().unwrap_or("unknown"),
+                    record.line().unwrap_or(0),
+                    record.args()
+                )
+            })
+            .init()
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<()>{
-    // fd 세팅
-    setup_resource_limits();
-    
-    // 로거 세팅
-    setup_logger();
-    
-    info!("udss-proxy 서버 시작");
-
-    // 통합 설정 로드
-    let mut settings = Settings::new()?;
-
-    // SSL 디렉토리 확인 및 생성
-    ensure_ssl_directories(&settings.proxy)?;
-
-    // 신뢰할 인증서 로드
-    load_trusted_certificates(&mut settings.proxy)?;
-
-    // tls 루트 ca 인증서 초기화
-    init_root_ca(&settings.proxy).await?;
-
-    // db 세팅
-    let db_pool = initialize_dbpool(&settings.database).await?;
-    initialize_db(&settings.database, &db_pool).await?;
-
-    Ok(())
-}

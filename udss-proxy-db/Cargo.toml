@@ -6,7 +6,9 @@ edition = "2024"
 [dependencies]
 udss-proxy-config = { workspace = true }
 udss-proxy-error = { workspace = true }
+tokio = { workspace = true }
 tokio-postgres = { workspace = true }
 deadpool-postgres = { workspace = true }
 log = { workspace = true }
 async-trait = { workspace = true }
+chrono = { workspace = true }

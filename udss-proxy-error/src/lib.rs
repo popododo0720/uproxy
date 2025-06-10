@@ -2,7 +2,7 @@ use std::fmt;
 use std::error::Error as StdError;
 use std::io;
 use std::net::AddrParseError;
-// use std::sync::PoisonError;
+use std::sync::PoisonError;
 use tokio::time::error::Elapsed;
 // use tokio_rustls::rustls;
 use deadpool_postgres::PoolError;
@@ -110,11 +110,11 @@ impl From<Elapsed> for ProxyError {
     }
 }
 
-// impl<T> From<PoisonError<T>> for ProxyError {
-//     fn from(err: PoisonError<T>) -> Self {
-//         ProxyError::Internal(format!("락 포이즌 에러: {}", err))
-//     }
-// }
+impl<T> From<PoisonError<T>> for ProxyError {
+    fn from(err: PoisonError<T>) -> Self {
+        ProxyError::Internal(format!("락 포이즌 에러: {}", err))
+    }
+}
 
 impl From<Box<dyn StdError + Send + Sync>> for ProxyError {
     fn from(err: Box<dyn StdError + Send + Sync>) -> Self {
