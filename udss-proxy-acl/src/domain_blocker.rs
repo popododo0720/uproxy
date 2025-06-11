@@ -24,7 +24,7 @@ impl Default for DomainBlocker {
 }
 
 impl DomainBlocker {
-    /// 새로운 DomainBlocker 인스턴스 생성
+    /// 새로운 `DomainBlocker` 인스턴스 생성
     pub fn new() -> Self {
         Self {
             blocked_domains: RwLock::new(HashSet::new()),

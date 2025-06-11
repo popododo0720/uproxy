@@ -31,8 +31,7 @@ impl Settings {
             match Config::from_file("config.yml") {
                 Ok(config) => Ok(config),
                 Err(e) => Err(ProxyError::Config(format!(
-                    "프록시 설정파일 로드 실패: {}",
-                    e
+                    "프록시 설정파일 로드 실패: {e}"
                 ))),
             }
         } else {
@@ -49,7 +48,7 @@ impl Settings {
             info!("DB 설정파일 로드: db.yml");
             match DbConfig::from_file("db.yml") {
                 Ok(config) => Ok(config),
-                Err(e) => Err(ProxyError::Config(format!("DB 설정파일 로드 실패: {}", e))),
+                Err(e) => Err(ProxyError::Config(format!("DB 설정파일 로드 실패: {e}"))),
             }
         } else {
             // 기본설정사용

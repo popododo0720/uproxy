@@ -2,7 +2,6 @@ use std::fs;
 use std::path::Path;
 
 use log::{debug, info, warn};
-use once_cell::sync::Lazy;
 use rcgen::{
     BasicConstraints, Certificate, CertificateParams, DistinguishedName, DnType, IsCa, KeyPair,
 };
@@ -11,7 +10,7 @@ use udss_proxy_config::Config;
 use udss_proxy_error::{Result, config_err};
 
 // 루트 CA 인증서 및 키 저장 (전역 변수)
-pub static ROOT_CA: Lazy<Mutex<Option<Certificate>>> = Lazy::new(|| Mutex::new(None));
+pub static ROOT_CA: std::sync::LazyLock<Mutex<Option<Certificate>>> = std::sync::LazyLock::new(|| Mutex::new(None));
 
 // 인증서 파일 경로 상수
 const CA_CERT_PEM_FILE: &str = "ca_cert.pem";
@@ -25,12 +24,12 @@ pub fn ensure_ssl_directories(config: &Config) -> Result<()> {
     let ssl_dir = &config.ssl_dir;
     // let cert_dir = format!("{}/certs", ssl_dir);
     // let key_dir = format!("{}/private", ssl_dir);
-    let trusted_dir = format!("{}/trusted_certs", ssl_dir);
+    let trusted_dir = format!("{ssl_dir}/trusted_certs");
 
     for dir in &[ssl_dir, &trusted_dir] {
         if !Path::new(dir).exists() {
             std::fs::create_dir_all(dir)?;
-            info!("디렉토리 생성: {}", dir);
+            info!("디렉토리 생성: {dir}");
         }
     }
 
@@ -56,7 +55,7 @@ pub fn load_trusted_certificates(config: &mut Config) -> Result<()> {
     }
 
     let cert_files = std::fs::read_dir(cert_dir)
-        .map_err(|e| config_err(format!("인증서 디렉토리 읽기 실패: {}", e)))?;
+        .map_err(|e| config_err(format!("인증서 디렉토리 읽기 실패: {e}")))?;
 
     for entry in cert_files.flatten() {
         let path = entry.path();
@@ -66,7 +65,7 @@ pub fn load_trusted_certificates(config: &mut Config) -> Result<()> {
                 .is_some_and(|ext| ext == "pem" || ext == "crt")
         {
             if let Some(path_str) = path.to_str() {
-                println!("Valid certificate file: {}", path_str);
+                println!("Valid certificate file: {path_str}");
             }
         }
     }
@@ -80,9 +79,9 @@ pub async fn init_root_ca(config: &Config) -> Result<()> {
     let mut ca_guard = ROOT_CA.lock().await;
 
     let ssl_dir = &config.ssl_dir;
-    let ca_cert_pem_path = format!("{}/{}", ssl_dir, CA_CERT_PEM_FILE);
-    let ca_key_pem_path = format!("{}/{}", ssl_dir, CA_KEY_PEM_FILE);
-    let ca_cert_crt_path = format!("{}/{}", ssl_dir, CA_CERT_CRT_FILE);
+    let ca_cert_pem_path = format!("{ssl_dir}/{CA_CERT_PEM_FILE}");
+    let ca_key_pem_path = format!("{ssl_dir}/{CA_KEY_PEM_FILE}");
+    let ca_cert_crt_path = format!("{ssl_dir}/{CA_CERT_CRT_FILE}");
 
     // 기존 인증서 유무 확인
     let crt_exists = Path::new(&ca_cert_crt_path).exists();
@@ -111,8 +110,8 @@ pub async fn init_root_ca(config: &Config) -> Result<()> {
         let key_pem = fs::read_to_string(&ca_key_pem_path)?;
 
         // .crt 내용과 .key 내용을 합쳐서 .pem 파일 생성
-        fs::write(&ca_cert_pem_path, format!("{}{}", cert_crt, key_pem))?;
-        info!("CA 인증서 PEM 생성 완료: {}", ca_cert_pem_path);
+        fs::write(&ca_cert_pem_path, format!("{cert_crt}{key_pem}"))?;
+        info!("CA 인증서 PEM 생성 완료: {ca_cert_pem_path}");
 
         // 키페어와 인증서 로드
         let key_pair = KeyPair::from_pem(&key_pem)?;
@@ -153,8 +152,8 @@ pub async fn init_root_ca(config: &Config) -> Result<()> {
         fs::write(&ca_cert_crt_path, &cert_part)?;
         fs::write(&ca_key_pem_path, &key_part)?;
 
-        info!("CA 인증서 CRT 생성 완료: {}", ca_cert_crt_path);
-        info!("CA 키 생성 완료: {}", ca_key_pem_path);
+        info!("CA 인증서 CRT 생성 완료: {ca_cert_crt_path}");
+        info!("CA 키 생성 완료: {ca_key_pem_path}");
 
         // 키페어와 인증서 로드
         let key_pair = KeyPair::from_pem(&key_part)?;
@@ -201,6 +200,7 @@ pub async fn init_root_ca(config: &Config) -> Result<()> {
         fs::write(&ca_cert_crt_path, &cert_pem)?;
 
         *ca_guard = Some(cert);
+        drop(ca_guard);
     }
 
     Ok(())

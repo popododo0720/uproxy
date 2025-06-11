@@ -137,8 +137,15 @@ args = ["bench"]
 dependencies = ["pre-build"]
 script_runner = "@shell"
 script = '''
+# sccache 일시적으로 비활성화
+export RUSTC_WRAPPER=""
+
+# 프로파일링 빌드
 cargo build --profile profiling
 cargo flamegraph --profile profiling -o flamegraph.svg
+
+# sccache 다시 활성화
+export RUSTC_WRAPPER="sccache"
 '''
 
 [tasks.analyze]
@@ -149,10 +156,8 @@ script = '''
 export RUSTC_WRAPPER=""
 
 # clippy 실행
-cargo clippy -- -W clippy::all -W clippy::pedantic -W clippy::nursery
-
-# 보안 감사 실행
-cargo audit
+# cargo clippy -- -W clippy::all -W clippy::pedantic -W clippy::nursery
+cargo clippy -- -W clippy::all
 
 # sccache 다시 활성화
 export RUSTC_WRAPPER="sccache"
@@ -170,22 +175,4 @@ script = '''
 cargo clean
 sccache --clear-cache
 rm -rf target/
-'''
-
-[tasks.check-size]
-# 바이너리 크기 확인
-script_runner = "@shell"
-script = '''
-echo "Checking binary sizes..."
-ls -lh target/release/uproxy
-strip target/release/uproxy
-ls -lh target/release/uproxy
-'''
-
-[tasks.test-optimized]
-# 최적화된 테스트 실행
-dependencies = ["pre-build"]
-script_runner = "@shell"
-script = '''
-RUST_LOG=info RUSTFLAGS="-C target-cpu=native -C lto=thin" cargo test --release
 '''

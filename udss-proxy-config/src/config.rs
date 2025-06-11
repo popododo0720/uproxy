@@ -31,6 +31,7 @@ impl Default for Config {
 
 impl Config {
     /// 기본설정으로 생성
+    #[must_use]
     pub fn new() -> Self {
         Self {
             bind_host: "0.0.0.0".to_string(),
@@ -55,7 +56,7 @@ impl Config {
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
 
-        let config: Config = serde_yml::from_str(&contents)?;
+        let config = serde_yml::from_str(&contents)?;
 
         Ok(config)
     }

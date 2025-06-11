@@ -66,8 +66,6 @@ impl ProxyServer {
             let (stream, client_addr) = listener.accept().await?;
             let client_clone = client.clone();
             let blocker_clone = domain_blocker.clone();
-            let self_host = self.setting.proxy.bind_host.clone();
-            let self_port = self.setting.proxy.bind_port;
 
             tokio::spawn(async move {
                 let io = TokioIo::new(stream);
@@ -75,7 +73,7 @@ impl ProxyServer {
                     .serve_connection(
                         io,
                         service_fn(move |req| {
-                            proxy_handler(req, client_clone.clone(), blocker_clone.clone(), self_host.clone(), self_port)
+                            proxy_handler(req, client_clone.clone(), blocker_clone.clone())
                         }),
                     )
                     .await
@@ -94,17 +92,17 @@ async fn proxy_handler(
     req: Request<Incoming>,
     client: Arc<HyperClient<HttpConnector, Full<Bytes>>>,
     blocker: Arc<DomainBlocker>,
-    self_host: String,
-    self_port: u16,
 ) -> Result<Response<Full<Bytes>>> {
     debug!("incoming: {req:?}");
 
-    // 자신으로의 요청 차단
-    if is_self_request(&req, &self_host, self_port) {
-        return Ok(create_error_response(
-            StatusCode::LOOP_DETECTED,
-            "Request to self detected - preventing infinite loop"
-        ));
+    // 직접 프록시 서버로 보내는 요청에 대한 기본 응답 (모든 경로 차단)
+    if req.uri().authority().is_none() { // path가 무엇이든 상관없이 authority가 없는 모든 요청 차단
+        debug!("직접 요청 감지: URI={}", req.uri());
+        return Ok(Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .header("Content-Type", "text/plain")
+            .body(Full::new(Bytes::from("This is a proxy server. Direct requests are not allowed.")))
+            .unwrap());
     }
 
     // 요청 URI에서 호스트 정보 추출 및 차단 여부 확인
@@ -130,32 +128,6 @@ async fn proxy_handler(
         // 일반 HTTP 요청 처리
         handle_http_request(req, client).await
     }
-}
-
-/// 자신으로의 요청인지 확인
-fn is_self_request(req: &Request<Incoming>, self_host: &String, self_port: u16) -> bool {
-    let uri = req.uri();
-
-    // URI에서 호스트와 포트 추출
-    if let Some(authority) = uri.authority() {
-        let target_host = authority.host();
-        let target_port = authority.port_u16().unwrap_or(80);
-        
-        // 자기 자신의 주소와 비교
-        // 호스트 비교 (localhost, 127.0.0.1, 0.0.0.0 등 고려)
-        let is_same_host = target_host == self_host ||
-            (is_localhost(target_host) && is_localhost(self_host)) ||
-            (target_host == "0.0.0.0" || self_host == "0.0.0.0");
-        
-        return is_same_host && target_port == self_port;
-    }
-
-    false
-}
-
-/// localhost 계열 주소인지 확인
-fn is_localhost(host: &str) -> bool {
-    matches!(host, "localhost" | "127.0.0.1" | "::1")
 }
 
 /// HTTP 요청 업스트림 포워딩

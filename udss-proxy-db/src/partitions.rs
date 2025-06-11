@@ -1,10 +1,9 @@
-use chrono::{Datelike, Duration};
 use log::{error, info};
 
 use udss_proxy_error::Result;
 
 /// 테이블 유형
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TableType {
     RequestLogs,
     ResponseLogs,
@@ -14,7 +13,7 @@ pub enum TableType {
 
 impl TableType {
     /// 테이블 이름 반환
-    fn get_name(&self) -> &'static str {
+    const fn get_name(self) -> &'static str {
         match self {
             TableType::RequestLogs => "request_logs",
             TableType::ResponseLogs => "response_logs",
@@ -28,10 +27,9 @@ impl TableType {
 pub async fn create_partitions(
     conn: &deadpool_postgres::Object,
     table: TableType,
-    start_date: chrono::NaiveDate,
     num_days: i32,
 ) -> Result<()> {
-    let mut created_partitions = Vec::new();
+    // let mut created_partitions = Vec::new();
     let table_name = table.get_name();
 
     // 템플릿에 값을 직접 삽입하여 SQL 생성
@@ -48,20 +46,10 @@ pub async fn create_partitions(
     .await
     {
         Ok(Ok(_)) => {
-            info!(
-                "파티션 자동 생성 스크립트 실행 완료: {}, {} 일 생성",
-                table_name, num_days
-            );
-
-            // 생성된 파티션 이름 구성
-            for i in 0..num_days {
-                let date = start_date + Duration::days(i as i64);
-                let partition_name = get_partition_name(table_name, date);
-                created_partitions.push(partition_name);
-            }
+            info!("파티션 자동 생성 스크립트 실행 완료: {table_name}, {num_days} 일 생성");
         }
         Ok(Err(e)) => {
-            error!("파티션 생성 스크립트 실행 실패: {}", e);
+            error!("파티션 생성 스크립트 실행 실패: {e}");
             return Err(e.into());
         }
         Err(_) => {
@@ -73,11 +61,3 @@ pub async fn create_partitions(
     Ok(())
 }
 
-/// 파티션 이름 생성
-fn get_partition_name(table_name: &str, date: chrono::NaiveDate) -> String {
-    let year = date.year();
-    let month = date.month();
-    let day = date.day();
-
-    format!("{}_{:04}{:02}{:02}", table_name, year, month, day)
-}

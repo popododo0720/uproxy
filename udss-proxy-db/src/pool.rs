@@ -38,11 +38,10 @@ impl DatabasePool {
         })
     }
 
-    /// PostgreSQL 설정 생성
+    /// `PostgreSQL` 설정 생성
     fn create_pg_config(dbconfig: &DbConfig) -> Config {
         let ssl_mode = match dbconfig.connection.sslmode.to_lowercase().as_str() {
             "disable" => SslMode::Disable,
-            "prefer" => SslMode::Prefer,
             "require" => SslMode::Require,
             _ => SslMode::Prefer,
         };
@@ -77,18 +76,18 @@ impl DatabasePool {
             .runtime(Runtime::Tokio1)
             .recycle_timeout(Some(Duration::from_secs(dbconfig.pool.recycle_seconds)))
             .build()
-            .map_err(|e| ProxyError::Database(format!("db 풀 생성 실패: {}", e)))?;
+            .map_err(|e| ProxyError::Database(format!("db 풀 생성 실패: {e}")))?;
 
         // 연결 테스트
         let conn = pool
             .get()
             .await
-            .map_err(|e| ProxyError::Database(format!("데이터베이스 연결 테스트 실패: {}", e)))?;
+            .map_err(|e| ProxyError::Database(format!("데이터베이스 연결 테스트 실패: {e}")))?;
 
         // 간단한 쿼리로 연결 확인
         conn.query_one("SELECT 1", &[])
             .await
-            .map_err(|e| ProxyError::Database(format!("데이터베이스 쿼리 테스트 실패: {}", e)))?;
+            .map_err(|e| ProxyError::Database(format!("데이터베이스 쿼리 테스트 실패: {e}")))?;
 
         Ok(pool)
     }
@@ -98,7 +97,7 @@ impl DatabasePool {
         self.pool
             .get()
             .await
-            .map_err(|e| ProxyError::Database(format!("연결 풀에서 연결 가져오기 실패: {}", e)))
+            .map_err(|e| ProxyError::Database(format!("연결 풀에서 연결 가져오기 실패: {e}")))
     }
 
     /// 연결 풀 상태 정보

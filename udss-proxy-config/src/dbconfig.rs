@@ -25,7 +25,7 @@ impl DbConfig {
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
 
-        let config: DbConfig = serde_yml::from_str(&contents)?;
+        let config = serde_yml::from_str(&contents)?;
 
         Ok(config)
     }
