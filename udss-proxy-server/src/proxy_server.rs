@@ -1,7 +1,6 @@
-use http_body_util::{BodyExt, Full};
-use hyper::body::{Bytes, Incoming};
+use http_body_util::{Full};
+use hyper::body::{Bytes};
 use hyper::service::service_fn;
-use hyper::{Method, Request, Response, StatusCode};
 use hyper_util::client::legacy::Client as HyperClient;
 use hyper_util::client::legacy::connect::HttpConnector;
 use hyper_util::rt::{TokioExecutor, TokioIo};
@@ -11,9 +10,11 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::time::Duration;
 
+use crate::proxy_handler::proxy_handler;
+
 use udss_proxy_acl::domain_blocker::DomainBlocker;
 use udss_proxy_config::setting::Settings;
-use udss_proxy_error::{ProxyError, Result};
+use udss_proxy_error::{Result};
 
 /// 프록시 서버 구조체
 pub struct ProxyServer {
@@ -87,151 +88,4 @@ impl ProxyServer {
     }
 }
 
-/// 프록시 요청 핸들러
-async fn proxy_handler(
-    req: Request<Incoming>,
-    client: Arc<HyperClient<HttpConnector, Full<Bytes>>>,
-    blocker: Arc<DomainBlocker>,
-) -> Result<Response<Full<Bytes>>> {
-    debug!("incoming: {req:?}");
 
-    // 직접 프록시 서버로 보내는 요청에 대한 기본 응답 (모든 경로 차단)
-    if req.uri().authority().is_none() { // path가 무엇이든 상관없이 authority가 없는 모든 요청 차단
-        debug!("직접 요청 감지: URI={}", req.uri());
-        return Ok(Response::builder()
-            .status(StatusCode::BAD_REQUEST)
-            .header("Content-Type", "text/plain")
-            .body(Full::new(Bytes::from("This is a proxy server. Direct requests are not allowed.")))
-            .unwrap());
-    }
-
-    // 요청 URI에서 호스트 정보 추출 및 차단 여부 확인
-    if let Some(host_str) = req.uri().host() {
-        if !host_str.is_empty() && blocker.is_blocked(host_str) {
-            info!("차단된 도메인 요청: {} (Host: {})", req.uri(), host_str);
-            return Ok(create_error_response(
-                StatusCode::FORBIDDEN,
-                &format!("Access to the domain '{host_str}' is blocked by policy."),
-            ));
-        }
-    } else {
-        debug!("요청 URI에 host 정보 없음: {}", req.uri());
-    }
-
-    // CONNECT 메서드 처리 (HTTPS 터널링)
-    if Method::CONNECT == req.method() {
-        Ok(Response::builder()
-            .status(StatusCode::OK)
-            .body(Full::new(Bytes::new()))
-            .unwrap())
-    } else {
-        // 일반 HTTP 요청 처리
-        handle_http_request(req, client).await
-    }
-}
-
-/// HTTP 요청 업스트림 포워딩
-async fn handle_http_request(
-    req: Request<Incoming>,
-    client: Arc<HyperClient<HttpConnector, Full<Bytes>>>,
-) -> Result<Response<Full<Bytes>>> {
-    let (mut parts, body) = req.into_parts();
-
-    // URI 변환
-    if parts.uri.scheme().is_none() {
-        convert_relative_to_absolute_uri(&mut parts, false)?;
-    }
-
-    // 요청 바디를 Full<Bytes>로 변환
-    let body_bytes = match body.collect().await {
-        Ok(collected) => collected.to_bytes(),
-        Err(e) => {
-            error!("요청 바디 읽기 실패: {e}");
-            return Ok(create_error_response(
-                StatusCode::BAD_REQUEST,
-                "Failed to read request body",
-            ));
-        }
-    };
-
-    let outgoing_req = Request::from_parts(parts, Full::new(body_bytes));
-    debug!("서버로 요청 포워딩: {}", outgoing_req.uri());
-
-    // 업스트림으로 요청 전송
-    match client.request(outgoing_req).await {
-        Ok(response) => {
-            debug!("응답코드: {}", response.status());
-
-            let (parts, body) = response.into_parts();
-            let body_bytes = match body.collect().await {
-                Ok(collected) => collected.to_bytes(),
-                Err(e) => {
-                    error!("응답 바디 읽기 실패: {e}");
-                    return Ok(create_error_response(
-                        StatusCode::BAD_GATEWAY,
-                        "Failed to read response body",
-                    ));
-                }
-            };
-
-            Ok(Response::from_parts(parts, Full::new(body_bytes)))
-        }
-        Err(e) => {
-            error!("요청 포워딩 실패: {e}");
-            Ok(create_error_response(
-                StatusCode::BAD_GATEWAY,
-                "Failed to connect to upstream",
-            ))
-        }
-    }
-}
-
-/// 상대 URI 절대 URI로 변환
-fn convert_relative_to_absolute_uri(
-    parts: &mut hyper::http::request::Parts,
-    is_tls: bool,
-) -> Result<()> {
-    if let Some(host_header) = parts
-        .headers
-        .get(hyper::header::HOST)
-        .and_then(|h| h.to_str().ok())
-    {
-        let scheme = if is_tls { "https" } else { "http" };
-
-        let new_uri_str = format!(
-            "{}://{}{}",
-            scheme,
-            host_header,
-            parts
-                .uri
-                .path_and_query()
-                .map_or("", hyper::http::uri::PathAndQuery::as_str)
-        );
-
-        // URI 파싱 및 설정
-        match new_uri_str.parse::<hyper::Uri>() {
-            Ok(new_uri) => {
-                parts.uri = new_uri;
-                Ok(())
-            }
-            Err(e) => {
-                error!("uri 변환 실패 '{new_uri_str}' : {e}");
-                Err(ProxyError::Http(format!("Invalid URI format: {e}")))
-            }
-        }
-    } else {
-        error!("상대 URI에 대한 호스트 헤더 누락: {}", parts.uri);
-        Err(ProxyError::Http(
-            "Host header required for relative URI".to_string(),
-        ))
-    }
-}
-
-/// 에러응답
-fn create_error_response(status: StatusCode, message: &str) -> Response<Full<Bytes>> {
-    Response::builder()
-        .status(status)
-        .header("Content-Type", "text/plain")
-        .body(Full::new(Bytes::from(message.to_string())))
-        .unwrap()
-}
