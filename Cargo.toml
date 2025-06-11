@@ -64,7 +64,6 @@ udss-proxy-tls = { workspace = true }
 
 # 외부
 tokio = { workspace = true }
-once_cell = { workspace = true }
 nix = { workspace = true }
 chrono = { workspace = true }
 num_cpus = { workspace = true }
@@ -78,6 +77,8 @@ deadpool-postgres = { workspace = true }
 # 로깅
 env_logger = { workspace = true }
 log = { workspace = true }
+audit = "0.7.3"
+cargo-audit = "0.21.2"
 
 [profile.dev]
 opt-level = 0  # 최적화 수준

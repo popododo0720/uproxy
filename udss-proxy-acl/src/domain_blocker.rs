@@ -53,12 +53,12 @@ impl DomainBlocker {
         match self.blocked_domains.read() {
             Ok(guard) => {
                 if guard.contains(host) {
-                    debug!("정확히 차단된 도메인: {}", host);
+                    debug!("정확히 차단된 도메인: {host}");
                     return true;
                 }
             }
             Err(e) => {
-                error!("blocked_domains RwLock 읽기 잠금 실패 (is_blocked): {}", e);
+                error!("blocked_domains RwLock 읽기 잠금 실패 (is_blocked): {e}");
                 return false;
             }
         }
@@ -73,7 +73,7 @@ impl DomainBlocker {
                 }
             }
             Err(e) => {
-                error!("regex_patterns RwLock 읽기 잠금 실패 (is_blocked): {}", e);
+                error!("regex_patterns RwLock 읽기 잠금 실패 (is_blocked): {e}");
                 return false;
             }
         }
@@ -86,16 +86,16 @@ impl DomainBlocker {
         match self.blocked_domains.write() {
             Ok(mut guard) => guard.clear(),
             Err(e) => {
-                let err_msg = format!("blocked_domains RwLock 쓰기 잠금 실패 (초기화 중): {}", e);
-                error!("{}", err_msg);
+                let err_msg = format!("blocked_domains RwLock 쓰기 잠금 실패 (초기화 중): {e}");
+                error!("{err_msg}");
                 return Err(ProxyError::Internal(err_msg));
             }
         }
         match self.regex_patterns.write() {
             Ok(mut guard) => guard.clear(),
             Err(e) => {
-                let err_msg = format!("regex_patterns RwLock 쓰기 잠금 실패 (초기화 중): {}", e);
-                error!("{}", err_msg);
+                let err_msg = format!("regex_patterns RwLock 쓰기 잠금 실패 (초기화 중): {e}");
+                error!("{err_msg}");
                 return Err(ProxyError::Internal(err_msg));
             }
         }
@@ -111,24 +111,24 @@ impl DomainBlocker {
             .query(sql::SELECT_ACTIVE_DOMAINS, &[])
             .await
             .map_err(|e| {
-                error!("도메인 차단 목록 쿼리 실패: {}", e);
-                ProxyError::Database(format!("DB query error: {}", e))
+                error!("도메인 차단 목록 쿼리 실패: {e}");
+                ProxyError::Database(format!("DB query error: {e}"))
             })?;
 
         let mut blocked_domains_writer = self.blocked_domains.write().map_err(|e| {
-            let err_msg = format!("blocked_domains RwLock 쓰기 잠금 실패 (DB 로드 중): {}", e);
-            error!("{}", err_msg);
+            let err_msg = format!("blocked_domains RwLock 쓰기 잠금 실패 (DB 로드 중): {e}");
+            error!("{err_msg}");
             ProxyError::Internal(err_msg)
         })?;
 
         for row in pg_rows {
             match row.try_get::<usize, String>(0) {
                 Ok(domain) => {
-                    debug!("차단 목록에 도메인 추가: {}", domain);
+                    debug!("차단 목록에 도메인 추가: {domain}");
                     blocked_domains_writer.insert(domain);
                 }
                 Err(e) => {
-                    error!("DB 행에서 도메인 문자열 추출 실패: {}", e);
+                    error!("DB 행에서 도메인 문자열 추출 실패: {e}");
                 }
             }
         }
@@ -148,13 +148,13 @@ impl DomainBlocker {
             .query(sql::SELECT_ACTIVE_PATTERNS, &[])
             .await
             .map_err(|e| {
-                error!("도메인 차단 패턴 목록 쿼리 실패: {}", e);
-                ProxyError::Database(format!("DB query error: {}", e))
+                error!("도메인 차단 패턴 목록 쿼리 실패: {e}");
+                ProxyError::Database(format!("DB query error: {e}"))
             })?;
 
         let mut regex_patterns_writer = self.regex_patterns.write().map_err(|e| {
-            let err_msg = format!("regex_patterns RwLock 쓰기 잠금 실패 (DB 로드 중): {}", e);
-            error!("{}", err_msg);
+            let err_msg = format!("regex_patterns RwLock 쓰기 잠금 실패 (DB 로드 중): {e}");
+            error!("{err_msg}");
             ProxyError::Internal(err_msg)
         })?;
 
@@ -162,15 +162,15 @@ impl DomainBlocker {
             match row.try_get::<usize, String>(0) {
                 Ok(pattern_str) => match Regex::new(&pattern_str) {
                     Ok(regex) => {
-                        debug!("차단 패턴 목록에 정규식 추가: {}", pattern_str);
+                        debug!("차단 패턴 목록에 정규식 추가: {pattern_str}");
                         regex_patterns_writer.push(regex);
                     }
                     Err(e) => {
-                        error!("정규식 컴파일 실패 '{}': {}", pattern_str, e);
+                        error!("정규식 컴파일 실패 '{pattern_str}': {e}");
                     }
                 },
                 Err(e) => {
-                    error!("DB 행에서 패턴 문자열 추출 실패: {}", e);
+                    error!("DB 행에서 패턴 문자열 추출 실패: {e}");
                 }
             }
         }

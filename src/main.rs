@@ -4,7 +4,6 @@ use std::sync::Arc;
 use chrono::Local;
 use env_logger::Builder;
 use log::{LevelFilter, info, warn};
-use once_cell::sync::Lazy;
 
 use udss_proxy_acl::domain_blocker::DomainBlocker;
 use udss_proxy_config::Settings;
@@ -50,11 +49,11 @@ async fn main() -> Result<()> {
 }
 
 /// 파일 디스크립터 제한 설정
-static FD_LIMIT: Lazy<u64> = Lazy::new(|| {
+static FD_LIMIT: std::sync::LazyLock<u64> = std::sync::LazyLock::new(|| {
     std::env::var("FD_LIMIT")
         .ok()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(100000) // 기본값 100k
+        .unwrap_or(100_000) // 기본값 100k
 });
 
 /// 시스템 리소스 제한 설정
@@ -68,7 +67,7 @@ fn setup_resource_limits() {
                 info!("파일 디스크립터 제한 {}", *FD_LIMIT);
             }
             Err(e) => {
-                warn!("파일 디스크립터 제한 설정 실패: {:?}", e);
+                warn!("파일 디스크립터 제한 설정 실패: {e:?}");
             }
         }
     }
@@ -91,7 +90,7 @@ fn setup_logger() {
                     record.args()
                 )
             })
-            .init()
+            .init();
     }
 
     #[cfg(not(debug_assertions))]
@@ -109,6 +108,6 @@ fn setup_logger() {
                     record.args()
                 )
             })
-            .init()
+            .init();
     }
 }

@@ -1,6 +1,13 @@
 [env]
 # 환경 변수 설정
 RUSTC_WRAPPER = "sccache"
+CARGO_INCREMENTAL = "1"
+RUST_BACKTRACE = "1"
+
+[config]
+# 기본 작업 설정
+default_to_workspace = false
+skip_core_tasks = true
 
 [tasks.setup]
 # 개발 환경 설정
@@ -24,6 +31,17 @@ if ! command -v ethtool &> /dev/null; then
     apt-get install -y ethtool
 fi
 
+# 성능 최적화 도구 설치
+if ! command -v cargo-flamegraph &> /dev/null; then
+    echo "Installing cargo-flamegraph for profiling..."
+    cargo install cargo-flamegraph
+fi
+
+if ! command -v hyperfine &> /dev/null; then
+    echo "Installing hyperfine for benchmarking..."
+    cargo install hyperfine
+fi
+
 # 환경 변수 적용
 echo 'export PATH=$HOME/.cargo/bin:$PATH' >> /root/.bashrc
 source /root/.bashrc
@@ -35,13 +53,26 @@ echo "Setup complete! Some changes may require a reboot."
 # 빌드 전에 .cargo/config.toml 자동 변경
 script_runner = "@shell"
 script = '''
+mkdir -p .cargo
 echo '[build]
 rustc-wrapper = "sccache"
-rustflags = ["-C", "target-cpu=native"]
+rustflags = [
+    "-C", "target-cpu=native",
+    "-C", "opt-level=3",
+    "-C", "debuginfo=0",
+    "-C", "codegen-units=1",
+    "-C", "panic=abort",
+    "-Z", "threads=8"
+]
 
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
-rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+rustflags = [
+    "-C", "link-arg=-fuse-ld=mold",
+    "-C", "link-arg=-Wl,--as-needed",
+    "-C", "link-arg=-Wl,-z,relro,-z,now",
+    "-C", "force-frame-pointers=no"
+]
 
 [profile.dev]
 opt-level = 1
@@ -53,7 +84,25 @@ debug = true
 opt-level = 3
 lto = "fat"
 codegen-units = 1
-strip = true' > .cargo/config.toml
+strip = true
+panic = "abort"
+debug = false
+incremental = false
+
+[profile.bench]
+inherits = "release"
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+debug = false
+debug-assertions = false
+overflow-checks = false
+
+[profile.profiling]
+inherits = "release"
+debug = true
+debug-assertions = false
+strip = false' > .cargo/config.toml
 '''
 
 [tasks.dev]
@@ -68,7 +117,75 @@ dependencies = ["pre-build"]
 command = "cargo"
 args = ["build", "--release"]
 
+[tasks.release-optimized]
+# 최적화된 릴리즈 빌드 실행
+dependencies = ["pre-build"]
+script_runner = "@shell"
+script = '''
+RUST_LOG=info RUSTFLAGS="-C target-cpu=native -C lto=fat -C codegen-units=1 -C opt-level=3" cargo build --release
+strip target/release/uproxy
+'''
+
+[tasks.bench]
+# 벤치마크 실행
+dependencies = ["pre-build"]
+command = "cargo"
+args = ["bench"]
+
+[tasks.profile]
+# 프로파일링 빌드 및 실행
+dependencies = ["pre-build"]
+script_runner = "@shell"
+script = '''
+cargo build --profile profiling
+cargo flamegraph --profile profiling -o flamegraph.svg
+'''
+
+[tasks.analyze]
+# 코드 분석 실행
+script_runner = "@shell"
+script = '''
+# sccache 일시적으로 비활성화
+export RUSTC_WRAPPER=""
+
+# clippy 실행
+cargo clippy -- -W clippy::all -W clippy::pedantic -W clippy::nursery
+
+# 보안 감사 실행
+cargo audit
+
+# sccache 다시 활성화
+export RUSTC_WRAPPER="sccache"
+'''
+
 [tasks.clean]
 # 빌드 캐시 정리
 command = "cargo"
 args = ["clean"]
+
+[tasks.clean-all]
+# 모든 캐시 정리
+script_runner = "@shell"
+script = '''
+cargo clean
+sccache --clear-cache
+rm -rf target/
+'''
+
+[tasks.check-size]
+# 바이너리 크기 확인
+script_runner = "@shell"
+script = '''
+echo "Checking binary sizes..."
+ls -lh target/release/uproxy
+strip target/release/uproxy
+ls -lh target/release/uproxy
+'''
+
+[tasks.test-optimized]
+# 최적화된 테스트 실행
+dependencies = ["pre-build"]
+script_runner = "@shell"
+script = '''
+RUST_LOG=info RUSTFLAGS="-C target-cpu=native -C lto=thin" cargo test --release
+'''

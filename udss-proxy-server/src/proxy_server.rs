@@ -57,7 +57,7 @@ impl ProxyServer {
             self.setting.proxy.bind_host, self.setting.proxy.bind_port
         );
         let listener = TcpListener::bind(&addr).await?;
-        info!("프록시 서버 시작: {}", addr);
+        info!("프록시 서버 시작: {addr}");
 
         let client = self.client_pool.clone();
         let domain_blocker = self.domain_blocker.clone();
@@ -80,9 +80,9 @@ impl ProxyServer {
                     )
                     .await
                 {
-                    error!("커넥션 에러: {}", err);
+                    error!("커넥션 에러: {err}");
                 } else {
-                    debug!("커넥션 종료: {}", client_addr);
+                    debug!("커넥션 종료: {client_addr}");
                 }
             });
         }
@@ -97,7 +97,7 @@ async fn proxy_handler(
     self_host: String,
     self_port: u16,
 ) -> Result<Response<Full<Bytes>>> {
-    debug!("incoming: {:?}", req);
+    debug!("incoming: {req:?}");
 
     // 자신으로의 요청 차단
     if is_self_request(&req, &self_host, self_port) {
@@ -113,7 +113,7 @@ async fn proxy_handler(
             info!("차단된 도메인 요청: {} (Host: {})", req.uri(), host_str);
             return Ok(create_error_response(
                 StatusCode::FORBIDDEN,
-                &format!("Access to the domain '{}' is blocked by policy.", host_str),
+                &format!("Access to the domain '{host_str}' is blocked by policy."),
             ));
         }
     } else {
@@ -167,14 +167,14 @@ async fn handle_http_request(
 
     // URI 변환
     if parts.uri.scheme().is_none() {
-        convert_relative_to_absolute_uri(&mut parts, false)?
+        convert_relative_to_absolute_uri(&mut parts, false)?;
     }
 
     // 요청 바디를 Full<Bytes>로 변환
     let body_bytes = match body.collect().await {
         Ok(collected) => collected.to_bytes(),
         Err(e) => {
-            error!("요청 바디 읽기 실패: {}", e);
+            error!("요청 바디 읽기 실패: {e}");
             return Ok(create_error_response(
                 StatusCode::BAD_REQUEST,
                 "Failed to read request body",
@@ -194,7 +194,7 @@ async fn handle_http_request(
             let body_bytes = match body.collect().await {
                 Ok(collected) => collected.to_bytes(),
                 Err(e) => {
-                    error!("응답 바디 읽기 실패: {}", e);
+                    error!("응답 바디 읽기 실패: {e}");
                     return Ok(create_error_response(
                         StatusCode::BAD_GATEWAY,
                         "Failed to read response body",
@@ -205,7 +205,7 @@ async fn handle_http_request(
             Ok(Response::from_parts(parts, Full::new(body_bytes)))
         }
         Err(e) => {
-            error!("요청 포워딩 실패: {}", e);
+            error!("요청 포워딩 실패: {e}");
             Ok(create_error_response(
                 StatusCode::BAD_GATEWAY,
                 "Failed to connect to upstream",
@@ -233,8 +233,7 @@ fn convert_relative_to_absolute_uri(
             parts
                 .uri
                 .path_and_query()
-                .map(|pq| pq.as_str())
-                .unwrap_or("")
+                .map_or("", hyper::http::uri::PathAndQuery::as_str)
         );
 
         // URI 파싱 및 설정
@@ -244,8 +243,8 @@ fn convert_relative_to_absolute_uri(
                 Ok(())
             }
             Err(e) => {
-                error!("uri 변환 실패 '{}' : {}", new_uri_str, e);
-                Err(ProxyError::Http(format!("Invalid URI format: {}", e)))
+                error!("uri 변환 실패 '{new_uri_str}' : {e}");
+                Err(ProxyError::Http(format!("Invalid URI format: {e}")))
             }
         }
     } else {
