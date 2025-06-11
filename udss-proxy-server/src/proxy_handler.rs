@@ -9,14 +9,14 @@ use std::sync::Arc;
 use crate::http::{handle_http_request, create_error_response};
 use crate::https::{handle_https_request};
 
-use udss_proxy_acl::domain_blocker::DomainBlocker;
 use udss_proxy_error::{Result};
+
+use crate::state::AppState;
 
 /// 프록시 요청 핸들러
 pub async fn proxy_handler(
     req: Request<Incoming>,
-    client: Arc<HyperClient<HttpConnector, Full<Bytes>>>,
-    blocker: Arc<DomainBlocker>,
+    state: AppState,
 ) -> Result<Response<Full<Bytes>>> {
     debug!("incoming: {req:?}");
 
@@ -32,23 +32,21 @@ pub async fn proxy_handler(
 
     // 요청 URI에서 호스트 정보 추출 및 차단 여부 확인
     if let Some(host_str) = req.uri().host() {
-        if !host_str.is_empty() && blocker.is_blocked(host_str) {
+        if !host_str.is_empty() && state.blocker.is_blocked(host_str) {
             info!("차단된 도메인 요청: {} (Host: {})", req.uri(), host_str);
             return Ok(create_error_response(
                 StatusCode::FORBIDDEN,
                 &format!("Access to the domain '{host_str}' is blocked by policy."),
             ));
         }
-    } else {
-        debug!("요청 URI에 host 정보 없음: {}", req.uri());
-    }
+    } 
 
     // https
     if Method::CONNECT == req.method() {
-        handle_https_request(req, client).await
+        handle_https_request(req, state).await
     } else {
         // http
-        handle_http_request(req, client).await
+        handle_http_request(req, state).await
     }
 }
 

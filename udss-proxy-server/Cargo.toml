@@ -6,10 +6,15 @@ edition = "2024"
 [dependencies]
 udss-proxy-acl = { workspace = true }
 udss-proxy-config = { workspace = true }
+udss-proxy-db = { workspace = true }
 udss-proxy-error = { workspace = true }
 tokio = { workspace = true }
 log = { workspace = true}
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
+hyper-rustls = { workspace = true }
 num_cpus = { workspace = true }
+rustls = { workspace = true }
+tokio-rustls = { workspace = true }
+rustls-pemfile = { workspace = true }

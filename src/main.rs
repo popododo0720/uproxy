@@ -1,15 +1,23 @@
 use std::io::Write;
 use std::sync::Arc;
+use tokio::time::Duration;
 
 use chrono::Local;
 use env_logger::Builder;
 use log::{LevelFilter, info, warn};
+use http_body_util::Full;
+use hyper::body::Bytes;
+use hyper_rustls::HttpsConnectorBuilder;
+use hyper_util::client::legacy::Client as HyperClient;
+use hyper_util::client::legacy::connect::HttpConnector;
+use hyper_util::rt::TokioExecutor;
+
 
 use udss_proxy_acl::domain_blocker::DomainBlocker;
 use udss_proxy_config::Settings;
 use udss_proxy_db::{initialize_db, initialize_dbpool};
 use udss_proxy_error::Result;
-use udss_proxy_server::proxy_server::ProxyServer;
+use udss_proxy_server::state::AppState;
 use udss_proxy_tls::certs::{ensure_ssl_directories, init_root_ca, load_trusted_certificates};
 
 #[tokio::main]
@@ -38,12 +46,37 @@ async fn main() -> Result<()> {
     let db_pool = initialize_dbpool(&settings.database).await?;
     initialize_db(&settings.database, &db_pool).await?;
 
+    // 도메인 차단기 초기화
     let domain_blocker = Arc::new(DomainBlocker::new());
     domain_blocker.init(&db_pool).await?;
 
-    // 서버 시작
-    let server = ProxyServer::new(settings.clone(), domain_blocker);
-    server.run().await?;
+    // 1. 일반 HTTP 통신을 위한 클라이언트
+    let http_client = Arc::new(
+        HyperClient::builder(TokioExecutor::default()).build(HttpConnector::new()),
+    );
+
+    // 2. HTTPS 통신을 위한 클라이언트
+    let https_connector = HttpsConnectorBuilder::new()
+        .with_native_roots()
+        .https_only()
+        .enable_http1()
+        .build();
+
+    let https_client = Arc::new(
+        HyperClient::builder(TokioExecutor::default()).build(https_connector),
+    );
+
+    // AppState 생성
+    let app_state = AppState {
+        http_client, 
+        https_client,
+        settings: Arc::new(settings),
+        blocker: domain_blocker,
+        db_pool,
+    };
+
+    // 서버시작
+    run(app_state).await?;
 
     Ok(())
 }

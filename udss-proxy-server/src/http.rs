@@ -8,57 +8,38 @@ use std::sync::Arc;
 
 use udss_proxy_error::{ProxyError, Result};
 
+use crate::state::AppState;
+
 /// HTTP 요청 업스트림 포워딩
 pub async fn handle_http_request(
     req: Request<Incoming>,
-    client: Arc<HyperClient<HttpConnector, Full<Bytes>>>,
+    state: AppState,
 ) -> Result<Response<Full<Bytes>>> {
     let (mut parts, body) = req.into_parts();
 
-    // URI 변환
-    if parts.uri.scheme().is_none() {
-        convert_relative_to_absolute_uri(&mut parts, false)?;
-    }
-
-    // 요청 바디를 Full<Bytes>로 변환
-    let body_bytes = match body.collect().await {
-        Ok(collected) => collected.to_bytes(),
-        Err(e) => {
-            error!("요청 바디 읽기 실패: {e}");
-            return Ok(create_error_response(
-                StatusCode::BAD_REQUEST,
-                "Failed to read request body",
-            ));
-        }
-    };
-
+    let body_bytes = body.collect().await?.to_bytes();
     let outgoing_req = Request::from_parts(parts, Full::new(body_bytes));
     debug!("서버로 요청 포워딩: {}", outgoing_req.uri());
 
-    // 업스트림으로 요청 전송
-    match client.request(outgoing_req).await {
+    // 요청 스킴에 따라 올바른 클라이언트 선택
+    let response_result = if outgoing_req.uri().scheme_str() == Some("https") {
+        state.https_client.request(outgoing_req).await
+    } else {
+        state.http_client.request(outgoing_req).await
+    };
+
+    match response_result {
         Ok(response) => {
             debug!("응답코드: {}", response.status());
-
             let (parts, body) = response.into_parts();
-            let body_bytes = match body.collect().await {
-                Ok(collected) => collected.to_bytes(),
-                Err(e) => {
-                    error!("응답 바디 읽기 실패: {e}");
-                    return Ok(create_error_response(
-                        StatusCode::BAD_GATEWAY,
-                        "Failed to read response body",
-                    ));
-                }
-            };
-
+            let body_bytes = body.collect().await?.to_bytes();
             Ok(Response::from_parts(parts, Full::new(body_bytes)))
         }
         Err(e) => {
-            error!("요청 포워딩 실패: {e}");
+            error!("업스트림 요청 실패: {e}");
             Ok(create_error_response(
                 StatusCode::BAD_GATEWAY,
-                "Failed to connect to upstream",
+                "Upstream request failed",
             ))
         }
     }
