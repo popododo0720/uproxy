@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+udss-proxy-acl = { workspace = true }
 udss-proxy-config = { workspace = true }
 udss-proxy-error = { workspace = true }
 tokio = { workspace = true }

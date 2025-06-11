@@ -1,24 +1,26 @@
 use std::io::Write;
+use std::sync::Arc;
 
-use once_cell::sync::Lazy;
-use log::{info, warn, LevelFilter};
-use env_logger::Builder;
 use chrono::Local;
+use env_logger::Builder;
+use log::{LevelFilter, info, warn};
+use once_cell::sync::Lazy;
 
+use udss_proxy_acl::domain_blocker::DomainBlocker;
 use udss_proxy_config::Settings;
-use udss_proxy_error::{Result};
-use udss_proxy_tls::certs::{init_root_ca, ensure_ssl_directories, load_trusted_certificates};
-use udss_proxy_db::{initialize_dbpool, initialize_db};
-use udss_proxy_server::proxy_server::{ProxyServer};
+use udss_proxy_db::{initialize_db, initialize_dbpool};
+use udss_proxy_error::Result;
+use udss_proxy_server::proxy_server::ProxyServer;
+use udss_proxy_tls::certs::{ensure_ssl_directories, init_root_ca, load_trusted_certificates};
 
 #[tokio::main]
-async fn main() -> Result<()>{
+async fn main() -> Result<()> {
     // fd 세팅
     setup_resource_limits();
-    
+
     // 로거 세팅
     setup_logger();
-    
+
     info!("udss-proxy 서버 시작");
 
     // 통합 설정 로드
@@ -37,10 +39,13 @@ async fn main() -> Result<()>{
     let db_pool = initialize_dbpool(&settings.database).await?;
     initialize_db(&settings.database, &db_pool).await?;
 
+    let domain_blocker = Arc::new(DomainBlocker::new());
+    domain_blocker.init(&db_pool).await?;
+
     // 서버 시작
-    let server = ProxyServer::new(settings.clone());
+    let server = ProxyServer::new(settings.clone(), domain_blocker);
     server.run().await?;
-    
+
     Ok(())
 }
 
@@ -49,19 +54,19 @@ static FD_LIMIT: Lazy<u64> = Lazy::new(|| {
     std::env::var("FD_LIMIT")
         .ok()
         .and_then(|v| v.parse().ok())
-        .unwrap_or(1000000) // 기본값 1M
+        .unwrap_or(100000) // 기본값 100k
 });
 
 /// 시스템 리소스 제한 설정
 fn setup_resource_limits() {
     #[cfg(unix)]
     {
-        use nix::sys::resource::{setrlimit, Resource};
+        use nix::sys::resource::{Resource, setrlimit};
         // fd 제한 늘리기
         match setrlimit(Resource::RLIMIT_NOFILE, *FD_LIMIT, *FD_LIMIT) {
             Ok(_) => {
                 info!("파일 디스크립터 제한 {}", *FD_LIMIT);
-            },
+            }
             Err(e) => {
                 warn!("파일 디스크립터 제한 설정 실패: {:?}", e);
             }
@@ -75,7 +80,7 @@ fn setup_logger() {
     {
         Builder::new()
             .filter(None, LevelFilter::Debug)
-            .format(|buf,record| {
+            .format(|buf, record| {
                 writeln!(
                     buf,
                     "[{} {} {}:{}] {}",
@@ -88,12 +93,12 @@ fn setup_logger() {
             })
             .init()
     }
-    
+
     #[cfg(not(debug_assertions))]
     {
         Builder::new()
             .filter(None, LevelFilter::Info)
-            .format(|buf,record| {
+            .format(|buf, record| {
                 writeln!(
                     buf,
                     "[{} {} {}:{}] {}",
@@ -107,4 +112,3 @@ fn setup_logger() {
             .init()
     }
 }
-

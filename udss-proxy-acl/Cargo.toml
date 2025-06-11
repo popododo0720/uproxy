@@ -4,3 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+udss-proxy-error = { workspace = true }
+udss-proxy-db = { workspace = true }
+lru = { workspace = true }
+regex = { workspace = true }
+log = { workspace = true }
+tokio-postgres = { workspace = true }
+deadpool-postgres = { workspace = true }

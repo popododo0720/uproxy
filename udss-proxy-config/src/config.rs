@@ -1,11 +1,10 @@
-use std::collections::HashSet;
-use std::path::Path;
 use std::fs::File;
 use std::io::Read;
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use udss_proxy_error::{Result};
+use udss_proxy_error::Result;
 
 /// 프록시 서버 설정
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,8 +17,6 @@ pub struct Config {
     pub worker_threads: Option<usize>,
     pub tls_verify_certificate: bool,
     pub disable_verify_internal_ip: bool,
-    pub blocked_domains: HashSet<String>,
-    pub blocked_patterns: HashSet<String>,
     pub trusted_certificates: Vec<String>,
     pub cache_enabled: bool,
     pub cache_size: usize,
@@ -44,8 +41,6 @@ impl Config {
             worker_threads: None,
             tls_verify_certificate: true,
             disable_verify_internal_ip: false,
-            blocked_domains: HashSet::new(),
-            blocked_patterns: HashSet::new(),
             trusted_certificates: Vec::new(),
             cache_enabled: true,
             cache_size: 1000,

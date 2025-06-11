@@ -1,0 +1,74 @@
+[env]
+# 환경 변수 설정
+RUSTC_WRAPPER = "sccache"
+
+[tasks.setup]
+# 개발 환경 설정
+script_runner = "@shell"
+script = '''
+echo "Updating package lists..."
+apt-get update
+
+if ! command -v mold &> /dev/null; then
+    echo "Installing mold linker..."
+    apt-get install -y mold || cargo install mold
+fi
+
+if ! command -v sccache &> /dev/null; then
+    echo "Installing sccache..."
+    cargo install sccache
+fi
+
+if ! command -v ethtool &> /dev/null; then
+    echo "Installing ethtool and other utilities..."
+    apt-get install -y ethtool
+fi
+
+# 환경 변수 적용
+echo 'export PATH=$HOME/.cargo/bin:$PATH' >> /root/.bashrc
+source /root/.bashrc
+
+echo "Setup complete! Some changes may require a reboot."
+'''
+
+[tasks.pre-build]
+# 빌드 전에 .cargo/config.toml 자동 변경
+script_runner = "@shell"
+script = '''
+echo '[build]
+rustc-wrapper = "sccache"
+rustflags = ["-C", "target-cpu=native"]
+
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+[profile.dev]
+opt-level = 1
+codegen-units = 16
+incremental = true
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true' > .cargo/config.toml
+'''
+
+[tasks.dev]
+# 개발 빌드 실행
+dependencies = ["pre-build"]
+command = "cargo"
+args = ["build"]
+
+[tasks.release]
+# 릴리즈 빌드 실행
+dependencies = ["pre-build"]
+command = "cargo"
+args = ["build", "--release"]
+
+[tasks.clean]
+# 빌드 캐시 정리
+command = "cargo"
+args = ["clean"]

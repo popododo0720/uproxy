@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use log::{info};
+use log::info;
 
 use udss_proxy_error::{ProxyError, Result};
 
@@ -20,10 +20,7 @@ impl Settings {
         let proxy = Self::load_proxy_config()?;
         let database = Self::load_db_config()?;
 
-        Ok(Self {
-            proxy,
-            database,
-        })
+        Ok(Self { proxy, database })
     }
 
     /// 프록시 설정 로드
@@ -33,9 +30,10 @@ impl Settings {
             info!("프록시 설정파일 로드: config.yml");
             match Config::from_file("config.yml") {
                 Ok(config) => Ok(config),
-                Err(e) => {
-                    Err(ProxyError::Config(format!("프록시 설정파일 로드 실패: {}", e)))
-                }
+                Err(e) => Err(ProxyError::Config(format!(
+                    "프록시 설정파일 로드 실패: {}",
+                    e
+                ))),
             }
         } else {
             // 기본설정사용
@@ -51,9 +49,7 @@ impl Settings {
             info!("DB 설정파일 로드: db.yml");
             match DbConfig::from_file("db.yml") {
                 Ok(config) => Ok(config),
-                Err(e) => {
-                    Err(ProxyError::Config(format!("DB 설정파일 로드 실패: {}", e)))
-                }
+                Err(e) => Err(ProxyError::Config(format!("DB 설정파일 로드 실패: {}", e))),
             }
         } else {
             // 기본설정사용

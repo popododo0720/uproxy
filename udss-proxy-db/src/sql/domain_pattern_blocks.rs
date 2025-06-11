@@ -13,5 +13,5 @@ pub const CREATE_TABLE: &str = "
 /// 인덱스 생성 쿼리
 pub const CREATE_INDICES: [&str; 2] = [
     "CREATE INDEX IF NOT EXISTS domain_pattern_blocks_pattern_idx ON domain_pattern_blocks(pattern)",
-    "CREATE INDEX IF NOT EXISTS domain_pattern_blocks_active_idx ON domain_pattern_blocks(active)"
+    "CREATE INDEX IF NOT EXISTS domain_pattern_blocks_active_idx ON domain_pattern_blocks(active)",
 ];

@@ -12,9 +12,9 @@ pub const CREATE_TABLE: &str = "
         PRIMARY KEY (id, timestamp)
     ) PARTITION BY RANGE (timestamp)";
 
-/// 기본 인덱스 생성 쿼리 
+/// 기본 인덱스 생성 쿼리
 pub const CREATE_INDICES: [&str; 3] = [
     "CREATE INDEX IF NOT EXISTS response_logs_session_id_idx ON response_logs(session_id)",
     "CREATE INDEX IF NOT EXISTS response_logs_timestamp_idx ON response_logs(timestamp)",
-    "CREATE INDEX IF NOT EXISTS response_logs_status_code_idx ON response_logs(status_code)"
+    "CREATE INDEX IF NOT EXISTS response_logs_status_code_idx ON response_logs(status_code)",
 ];

@@ -15,5 +15,5 @@ pub const CREATE_TABLE: &str = "
 
 /// 기본 인덱스 생성 쿼리 - 부모 테이블에만 적용
 pub const CREATE_INDICES: [&str; 1] = [
-    "CREATE INDEX IF NOT EXISTS proxy_stats_hourly_timestamp_idx ON proxy_stats_hourly(timestamp)"
+    "CREATE INDEX IF NOT EXISTS proxy_stats_hourly_timestamp_idx ON proxy_stats_hourly(timestamp)",
 ];

@@ -1,11 +1,14 @@
-use log::{debug, info, warn, error};
+use log::{debug, error, info, warn};
 
 use udss_proxy_config::DbConfig;
-use udss_proxy_error::{Result};
+use udss_proxy_error::Result;
 
-use crate::{pool::DatabasePool};
-use crate::sql::{request_logs, response_logs, proxy_stats, proxy_stats_hourly, domain_blocks, domain_pattern_blocks};
 use crate::partitions::{TableType, create_partitions};
+use crate::pool::DatabasePool;
+use crate::sql::{
+    domain_blocks, domain_pattern_blocks, proxy_stats, proxy_stats_hourly, request_logs,
+    response_logs,
+};
 
 /// 데이터베이스 초기화
 pub async fn initialize_db(config: &DbConfig, pool: &DatabasePool) -> Result<()> {
@@ -21,7 +24,7 @@ pub async fn initialize_db(config: &DbConfig, pool: &DatabasePool) -> Result<()>
 async fn ensure_partitions(config: &DbConfig, pool: &DatabasePool) -> Result<()> {
     // 커넥션 풀에서 로드
     let conn = pool.get_connection().await?;
-    
+
     // 테이블생성 확인
     if let Err(e) = create_tables(&conn).await {
         error!("테이블 생성중 오류발생: {}", e);
@@ -52,7 +55,7 @@ async fn create_tables(conn: &deadpool_postgres::Object) -> Result<()> {
             //         error!("request_logs 인덱스 생성 실패: {}", e);
             //     }
             // }
-        },
+        }
         Err(e) => {
             error!("request_logs 테이블 생성중 오류 발생: {}", e);
         }
@@ -69,7 +72,7 @@ async fn create_tables(conn: &deadpool_postgres::Object) -> Result<()> {
             //         error!("response_logs 인덱스 생성 실패: {}", e);
             //     }
             // }
-        },
+        }
         Err(e) => {
             error!("response_logs 테이블 생성중 오류 발생: {}", e);
         }
@@ -86,7 +89,7 @@ async fn create_tables(conn: &deadpool_postgres::Object) -> Result<()> {
             //         error!("proxy_stats 인덱스 생성 실패: {}", e);
             //     }
             // }
-        },
+        }
         Err(e) => {
             error!("proxy_stats 테이블 생성중 오류 발생: {}", e);
         }
@@ -103,7 +106,7 @@ async fn create_tables(conn: &deadpool_postgres::Object) -> Result<()> {
             //         error!("proxy_stats_hourly 인덱스 생성 실패: {}", e);
             //     }
             // }
-        },
+        }
         Err(e) => {
             error!("proxy_stats_hourly 테이블 생성중 오류 발생: {}", e);
         }
@@ -120,7 +123,7 @@ async fn create_tables(conn: &deadpool_postgres::Object) -> Result<()> {
                     error!("domain_blocks 인덱스 생성 실패: {}", e);
                 }
             }
-        },
+        }
         Err(e) => {
             error!("domain_blocks 테이블 생성중 오류 발생: {}", e);
         }
@@ -137,7 +140,7 @@ async fn create_tables(conn: &deadpool_postgres::Object) -> Result<()> {
                     error!("domain_pattern_blocks 인덱스 생성 실패: {}", e);
                 }
             }
-        },
+        }
         Err(e) => {
             error!("domain_pattern_blocks 테이블 생성중 오류 발생: {}", e);
         }
@@ -150,33 +153,40 @@ async fn create_tables(conn: &deadpool_postgres::Object) -> Result<()> {
 async fn set_all_partitions(conn: &deadpool_postgres::Object, config: &DbConfig) -> Result<()> {
     let today = chrono::Local::now().date_naive();
     let future_partitions = config.partitioning.future_partitions as i32;
-    
+
     // request_logs 파티셔닝
     debug!("request_logs 파티션 생성");
     match create_partitions(conn, TableType::RequestLogs, today, future_partitions + 1).await {
         Ok(_) => info!("request_logs 파티션 생성완료"),
-        Err(e) => error!("request_logs 파티션 생성 실패: {}", e)
+        Err(e) => error!("request_logs 파티션 생성 실패: {}", e),
     }
-    
+
     // response_logs 파티셔닝
     debug!("response_logs 파티션 생성");
     match create_partitions(conn, TableType::ResponseLogs, today, future_partitions + 1).await {
         Ok(_) => info!("response_logs 파티션 생성완료"),
-        Err(e) => error!("response_logs 파티션 생성 실패: {}", e)
+        Err(e) => error!("response_logs 파티션 생성 실패: {}", e),
     }
 
     // proxy_stats 파티셔닝
     debug!("proxy_stats 파티션 생성");
     match create_partitions(conn, TableType::ProxyStats, today, future_partitions + 1).await {
         Ok(_) => info!("proxy_stats 파티션 생성완료"),
-        Err(e) => error!("proxy_stats 파티션 생성 실패: {}", e)
+        Err(e) => error!("proxy_stats 파티션 생성 실패: {}", e),
     }
 
     // proxy_stats_hourly 파티셔닝
     debug!("proxy_stats_hourly 파티션 생성");
-    match create_partitions(conn, TableType::ProxyStatsHourly, today, future_partitions + 1).await {
+    match create_partitions(
+        conn,
+        TableType::ProxyStatsHourly,
+        today,
+        future_partitions + 1,
+    )
+    .await
+    {
         Ok(_) => info!("proxy_stats_hourly 파티션 생성완료"),
-        Err(e) => error!("proxy_stats_hourly 파티션 생성 실패: {}", e)
+        Err(e) => error!("proxy_stats_hourly 파티션 생성 실패: {}", e),
     }
 
     Ok(())

@@ -1,10 +1,10 @@
-use std::{path::Path};
 use std::fs::File;
 use std::io::Read;
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use udss_proxy_error::{Result};
+use udss_proxy_error::Result;
 
 /// 데이터베이스 설정
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -90,10 +90,9 @@ pub struct PoolConfig {
 impl Default for PoolConfig {
     fn default() -> Self {
         Self {
-            max_connections: 20, // 최대 연결풀 
-            connection_timeout_seconds: 30,  // 연결 시도 타임아웃 30초
-            recycle_seconds: 21_600,    // 6시간마다 연결 갱신
+            max_connections: 20,            // 최대 연결풀
+            connection_timeout_seconds: 30, // 연결 시도 타임아웃 30초
+            recycle_seconds: 21_600,        // 6시간마다 연결 갱신
         }
     }
 }
-

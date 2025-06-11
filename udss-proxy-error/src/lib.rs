@@ -1,45 +1,45 @@
-use std::fmt;
 use std::error::Error as StdError;
+use std::fmt;
 use std::io;
 use std::net::AddrParseError;
 use std::sync::PoisonError;
 use tokio::time::error::Elapsed;
 // use tokio_rustls::rustls;
 use deadpool_postgres::PoolError;
-use tokio_postgres::Error as PgError;
 use rcgen::Error as RcgenError;
 use serde_yml::Error as YmlError;
+use tokio_postgres::Error as PgError;
 
 /// UDSS 프록시 서버의 모든 에러 타입을 정의합니다.
 #[derive(Debug)]
 pub enum ProxyError {
     /// 설정 관련 에러
     Config(String),
-    
+
     /// 네트워크 입출력 에러
     Io(io::Error),
-    
+
     /// 데이터베이스 관련 에러
     Database(String),
-    
+
     /// 로깅 관련 에러
     Logging(String),
-    
+
     /// TLS/SSL 관련 에러
     Tls(String),
-    
+
     /// HTTP 프로토콜 관련 에러
     Http(String),
-    
+
     /// 타임아웃 에러
     Timeout(String),
-    
+
     /// 권한 관련 에러
     AccessControl(String),
-    
+
     /// 내부 상태 관련 에러
     Internal(String),
-    
+
     /// 기타 에러
     Other(String),
 }

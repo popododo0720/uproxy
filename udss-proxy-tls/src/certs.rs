@@ -1,10 +1,12 @@
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 
 use log::{debug, info, warn};
 use once_cell::sync::Lazy;
+use rcgen::{
+    BasicConstraints, Certificate, CertificateParams, DistinguishedName, DnType, IsCa, KeyPair,
+};
 use tokio::sync::Mutex;
-use rcgen::{Certificate, CertificateParams, DistinguishedName, DnType, KeyPair, IsCa, BasicConstraints};
 use udss_proxy_config::Config;
 use udss_proxy_error::{Result, config_err};
 
@@ -24,7 +26,7 @@ pub fn ensure_ssl_directories(config: &Config) -> Result<()> {
     // let cert_dir = format!("{}/certs", ssl_dir);
     // let key_dir = format!("{}/private", ssl_dir);
     let trusted_dir = format!("{}/trusted_certs", ssl_dir);
-    
+
     for dir in &[ssl_dir, &trusted_dir] {
         if !Path::new(dir).exists() {
             std::fs::create_dir_all(dir)?;
@@ -50,7 +52,7 @@ pub fn load_trusted_certificates(config: &mut Config) -> Result<()> {
     let cert_dir = Path::new(&config.ssl_dir).join("trusted_certs");
     if !cert_dir.exists() || !cert_dir.is_dir() {
         warn!("인증서 디렉토리가 존재하지 않습니다: {}", config.ssl_dir);
-        return Ok(())
+        return Ok(());
     }
 
     let cert_files = std::fs::read_dir(cert_dir)
@@ -58,7 +60,11 @@ pub fn load_trusted_certificates(config: &mut Config) -> Result<()> {
 
     for entry in cert_files.flatten() {
         let path = entry.path();
-        if path.is_file() && path.extension().is_some_and(|ext| ext == "pem" || ext == "crt") {
+        if path.is_file()
+            && path
+                .extension()
+                .is_some_and(|ext| ext == "pem" || ext == "crt")
+        {
             if let Some(path_str) = path.to_str() {
                 println!("Valid certificate file: {}", path_str);
             }
@@ -72,7 +78,7 @@ pub fn load_trusted_certificates(config: &mut Config) -> Result<()> {
 /// 루트 CA 인증서 초기화
 pub async fn init_root_ca(config: &Config) -> Result<()> {
     let mut ca_guard = ROOT_CA.lock().await;
-    
+
     let ssl_dir = &config.ssl_dir;
     let ca_cert_pem_path = format!("{}/{}", ssl_dir, CA_CERT_PEM_FILE);
     let ca_key_pem_path = format!("{}/{}", ssl_dir, CA_KEY_PEM_FILE);
@@ -83,12 +89,11 @@ pub async fn init_root_ca(config: &Config) -> Result<()> {
     let key_exists = Path::new(&ca_key_pem_path).exists();
     let pem_exists = Path::new(&ca_cert_pem_path).exists();
 
-    
     if crt_exists && key_exists && pem_exists {
         info!("기존 CA 인증서 로드");
         let _cert_pem = fs::read_to_string(&ca_cert_pem_path)?;
         let key_pem = fs::read_to_string(&ca_key_pem_path)?;
-        
+
         // PEM에서 인증서와 키 로드
         let key_pair = KeyPair::from_pem(&key_pem)?;
 
@@ -104,34 +109,34 @@ pub async fn init_root_ca(config: &Config) -> Result<()> {
         info!(".crt와 .key 파일에서 .pem 파일 생성");
         let cert_crt = fs::read_to_string(&ca_cert_crt_path)?;
         let key_pem = fs::read_to_string(&ca_key_pem_path)?;
-        
+
         // .crt 내용과 .key 내용을 합쳐서 .pem 파일 생성
         fs::write(&ca_cert_pem_path, format!("{}{}", cert_crt, key_pem))?;
         info!("CA 인증서 PEM 생성 완료: {}", ca_cert_pem_path);
-        
+
         // 키페어와 인증서 로드
         let key_pair = KeyPair::from_pem(&key_pem)?;
-        
+
         // 인증서 파라미터 생성
         let params = CertificateParams::new(vec!["UDSS Proxy Root CA".to_string()])?;
-        
+
         // 인증서 생성
         let cert = params.self_signed(&key_pair)?;
-        
+
         *ca_guard = Some(cert);
     } else if pem_exists {
         // .pem 파일만 존재하는 경우 .crt와 .key 파일로 분리
         info!(".pem 파일에서 .crt와 .key 파일 생성");
         let pem_content = fs::read_to_string(&ca_cert_pem_path)?;
-        
+
         // PEM 파일에서 인증서와 키 부분 분리
         // 일반적으로 PEM 파일은 인증서 부분과 키 부분으로 구성됨
         // 인증서 부분은 "-----BEGIN CERTIFICATE-----"로 시작
         // 키 부분은 "-----BEGIN PRIVATE KEY-----"로 시작
-        
+
         let cert_part: String;
         let key_part: String;
-        
+
         if let Some(key_start) = pem_content.find("-----BEGIN PRIVATE KEY-----") {
             cert_part = pem_content[0..key_start].trim().to_string();
             key_part = pem_content[key_start..].trim().to_string();
@@ -139,25 +144,27 @@ pub async fn init_root_ca(config: &Config) -> Result<()> {
             cert_part = pem_content[0..key_start].trim().to_string();
             key_part = pem_content[key_start..].trim().to_string();
         } else {
-            return Err(config_err("PEM 파일에서 인증서와 키를 분리할 수 없습니다.".to_string()));
+            return Err(config_err(
+                "PEM 파일에서 인증서와 키를 분리할 수 없습니다.".to_string(),
+            ));
         }
-        
+
         // 파일로 저장
         fs::write(&ca_cert_crt_path, &cert_part)?;
         fs::write(&ca_key_pem_path, &key_part)?;
-        
+
         info!("CA 인증서 CRT 생성 완료: {}", ca_cert_crt_path);
         info!("CA 키 생성 완료: {}", ca_key_pem_path);
-        
+
         // 키페어와 인증서 로드
         let key_pair = KeyPair::from_pem(&key_part)?;
-        
+
         // 인증서 파라미터 생성
         let params = CertificateParams::new(vec!["UDSS Proxy Root CA".to_string()])?;
-        
+
         // 인증서 생성
         let cert = params.self_signed(&key_pair)?;
-        
+
         *ca_guard = Some(cert);
     } else {
         info!("새 CA 인증서 생성");
@@ -181,20 +188,20 @@ pub async fn init_root_ca(config: &Config) -> Result<()> {
         // 키페어 생성 및 인증서 생성
         let key_pair = KeyPair::generate()?;
         let cert = params.self_signed(&key_pair)?;
-        
+
         // PEM 형식으로 저장
         let cert_pem = cert.pem();
         let key_pem = key_pair.serialize_pem();
-        
+
         // 파일로 저장
         fs::write(&ca_cert_pem_path, &cert_pem)?;
         fs::write(&ca_key_pem_path, &key_pem)?;
-        
+
         // Windows 인증서 스토어용 .crt 파일 생성
         fs::write(&ca_cert_crt_path, &cert_pem)?;
 
         *ca_guard = Some(cert);
     }
-    
+
     Ok(())
 }
